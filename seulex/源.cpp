@@ -8,9 +8,10 @@
 #include <map>
 #include <vector>
 #include <set>
+#include <tuple>
 #include "Node.h"
-#define EPSL 84775
 using namespace std;
+#define EPSL 84775
 
 ifstream infile;
 ofstream outfile;
@@ -67,7 +68,18 @@ void displayNodeVector(vector<Node*> d){
 	cout << "in vector Node:\n";
 	for each (Node* var in d)
 	{
-		cout << var->getNum() << '\t';
+		int num = var->getNum();
+		cout << num <<(var->isTerminal())?"is Terminal":"";
+		cout << endl;
+		multimap<char, Node*>::const_iterator itr;
+		multimap<char, Node*> out = var->getOutAll();
+		itr = out.begin();
+		while (itr != out.end())
+		{
+			cout << num << "-->" << (itr->second)->getNum() << '\t';
+			itr++;
+		}
+		cout << endl;
 	}
 	cout << endl;
 }
@@ -140,7 +152,7 @@ void generateDFA(Node* start){
 				dfaNodes[j - 1]->addOut(c, dfaNodes[i - 1]);//增加连接
 
 				inedge.find(c)->second.insert(dfaNodes[i - 1]);//增加入边表
-				outedge.find(c)->second.insert(dfaNodes[i - 1]);//增加出边表
+				outedge.find(c)->second.insert(dfaNodes[j - 1]);//增加出边表
 			}
 			else//如果不存在，建立新的节点，加边
 			{
@@ -149,16 +161,17 @@ void generateDFA(Node* start){
 				bool isTermin = false;
 				for each (Node* nd in e)   //根据该状态集合里是否有终态确定新状态是否是终态
 				{
-					if (nd->isTerminal()){
+					bool ndisT = nd->isTerminal();
+					if(ndisT){
 						isTermin = true;
 						break;
 					}
 				}
 				Node* newNode = new Node(dfaNo++, isTermin);
 				if (isTermin)            //根据是否终结点加入终结点集合或非终结点集合
-					endStates.insert(node1);
+					endStates.insert(newNode);
 				else
-					nendStates.insert(node1);
+					nendStates.insert(newNode);
 
 				dfaNodes.push_back(newNode);
 				dfaNodes[j - 1]->addOut(c, newNode);
@@ -217,34 +230,77 @@ set<T> sub(set<T> s1, set<T> s2){
 	}
 	return result;
 }
-//Hopcroft's algorithm最小化DFA,参考wikipedia，自动机理论、语言和计算导论
+//计算两个set的交集和差集
+/*
+template <class T>
+pair<set<T>, set<T>> jiaocha(set<T> s1, set<T> s2){
+pair<set<T>, set<T>> presult;
+for each ( T in s1)
+{
+if (s2.find(var) == s2.end()){
+presult->second.push_back(var);
+}
+else
+{
+presult->first.push_back(var);
+}
+}
+return presult;
+}*/
+//Hopcroft's algorithm最小化DFA,参考wikipedia，自动机理论、语言和计算导论 worst case:O(ns log n), where n is the number of states and s is the size of the alphabet.
 void miniDFA(){
 	layer P;
 	P.push_back(endStates);
 	P.push_back(nendStates);//P := {F, Q \ F};
 	layer w;
 	w.push_back(endStates);//W := {F};
+	//stack<set<Node*>> pstack;
+	//pstack.push(endStates);
+	//pstack.push(nendStates);//P := {F, Q \ F};
+
+
 	while (!w.empty())//while (W is not empty) do
 	{
 		group A = w.back();//  choose and remove a set A from W
 		w.pop_back();
 		for each (char ch in alphaTB)// for each c in ∑ do
 		{
-			set<Node*> X = Jiao(outedge.find(ch)->second, A);//  let X be the set of states for which a transition on c leads to a state in A  C---->A  by c
-			for each (set<Node*> Y in P)  //for each set Y in P for which X ∩ Y is nonempty and Y \ X is nonempty do
+			set<Node*> X;//let X be the set of states for which a transition on c leads to a state in A  X--ch--->A
+			set<Node*> tmp = outedge.find(ch)->second;//状态nd在ch字符对应的出边表里
+			for each (Node* nd in tmp)
 			{
+				vector<Node*>::iterator iter;//且状态nd的后继节点在A中，则把状态nd加入X
+				vector<Node*> tmp1 = nd->findNext(ch);
+				for (iter = tmp1.begin(); iter != tmp1.end(); ++iter)
+				{
+					//cout << (*iter).first << "  " << (*iter).second->getNum() << endl;
+					if (A.find(*iter) != A.end()){
+						X.insert(nd);
+					}
+				}
+			}
+			layer::iterator pitr = P.begin();
+
+			while(pitr!=P.end()) //for each set Y in P for which X ∩ Y is nonempty and Y \ X is nonempty do
+			{
+				set<Node*> Y = *pitr;
 				set<Node*> jiaoset = Jiao(X, Y);
-				set<Node*> subset = sub(X, Y);
+				set<Node*> subset = sub(Y, X);
 
-				if (jiaoset.empty() || subset.empty())
+				if (jiaoset.empty() || subset.empty()){
+					pitr++;
 					continue;
+				}
 
-				remove(P.begin(), P.end(), Y);//  replace Y in P by the two sets X ∩ Y and Y \ X
+				//layer::iterator rmv=remove(P.begin(), P.end(), Y);//  replace Y in P by the two sets X ∩ Y and Y \ X
+				//P.erase(rmv, P.end());
+				pitr = P.erase(pitr);
 				P.push_back(jiaoset);
 				P.push_back(subset);
 				layer::iterator itrL = find(w.begin(), w.end(), Y);
 				if (itrL != w.end()){          // if Y is in W
-					remove(P.begin(), P.end(), w);//      replace Y in W by the same two sets
+					layer::iterator rmvw=remove(w.begin(), w.end(), Y);//      replace Y in W by the same two sets
+					w.erase(rmvw, w.end());
 					w.push_back(jiaoset);
 					w.push_back(subset);
 				}
@@ -258,7 +314,57 @@ void miniDFA(){
 			}
 		}
 	}
+	cout << "division done!!!!!!!!\n size ="<<P.size()<<"\nbegin new DFA-----------------" << endl;
+	//划分子集完成，建立新的DFA节点和连接关系
+	int i = 0;
+	typedef tuple<int,char,int> move;
+	vector<tuple<int, char, int>> movevec;//点-边-点的三元组的集合
+	vector<Node*> minDFA;//DFA'的节点集合
+	for each (set<Node*> setOfNodes in P)//重新建立minDFA的节点
+	{
+		Node* minNode=new Node(i);
+		for each (Node* nodeRpr in setOfNodes)
+		{
+			if (nodeRpr->isTerminal()){
+				minNode->setTerminal(true);
+				continue;
+			}
+			for each (char c in alphaTB)
+			{
+				Node* nextNd = nodeRpr->findNext(c)[0];//找出节点对应字符的后继，dfa节点一个字符只对应一个后继
+				//遍历P里的节点状态，找到出边的节点所在的集合的编号
+				for (int j = 0; j < P.size(); j++)
+				{
+					if (P[j].find(nextNd) == P[j].end()){
+						movevec.push_back(make_tuple(i, c, j));//增加映射
+						cout << "add map " << i << '\t' << c << '\t' << j << endl;
+					}
+				}
+			}
+		}
+		minDFA.push_back(minNode);
+		i++;
+	}
 
+	i = 0;
+	int k = 0;
+	for each (set<Node*> setOfNodes in P)  //重新建立连接关系
+	{
+		Node* minNode = minDFA[i];
+		move tempp = movevec[k];
+		while (i == get<0>(tempp))
+		{
+			minNode->addOut(get<1>(tempp), minDFA[get<2>(tempp)]);
+			cout << "add edge " << i << '\t' << get<1>(tempp) << '\t' << get<2>(tempp) << endl;
+			k++;
+			if (k >= movevec.size())
+				break;
+			tempp = movevec[k];
+		}
+		i++;
+	}
+	displayNodeVector(minDFA);
+	//删除dead state 和not reachable state
 }
 int main(){
 	Node* n1 = new Node(1);
@@ -269,7 +375,7 @@ int main(){
 	Node* n6 = new Node(6);
 	Node* n7 = new Node(7);
 	Node* n8 = new Node(8);
-	n8->setTerminal(false);
+	n8->setTerminal(true);
 
 	n1->addOut(EPSL, n2);
 
@@ -297,6 +403,9 @@ int main(){
 	I.push_back(n1);
 
 	generateDFA(n1);
+	miniDFA();
+	
+
 	delete n1; delete n2; delete n3; delete n4; delete n5; delete n6; delete n7; delete n8;
 	//delete[]trans;
 	return 0;

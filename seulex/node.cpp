@@ -4,6 +4,7 @@
 #include<iostream>
 #include <iterator>
 #include <map>
+#include <set>
 
 using namespace std;
 
@@ -53,7 +54,15 @@ void Node::addOut(char on, Node* end){
 multimap<char, Node*> Node::getOutAll(){
 	return out;
 }
+/*
+set<Node*> Node::getAllNext(){
+	set<Node*> result;
+	for each (object var in collection_to_loop)
+	{
 
+	}
+	return result;
+}*/
 typedef multimap<char, Node*>::size_type sz_type;
 
 vector<Node*> Node::findNext(char key){
