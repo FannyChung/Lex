@@ -375,20 +375,27 @@ void generateDFA(Node* start){
 void writeToc(){
 	outfile << "#include<iostream>\nusing namespace std;\n"
 		"const int MYERROR=1000000;"
-		"string analysis(string yytext){\n"
-		"\tint state=0;\n"
-		"\tint i=0;\n"
-		"\tchar ch=yytext[i];\n"
-		"\twhile(i<=yytext.length()){\n"
-		"\t\tswitch(state){\n";
+		"ifstream infile;"
+		"ofstream outfile"
+		"infile.open(\"test.cpp\", ios::in, 1);//输入文件只读"
+		"outfile.open(\"testout.txt\",ios::out,0);"
+		"void yylex(){\n"
+		"string yytext;"
+		"while(true){\n"
+		"\tinfile>>yytext;"
+		"\t\tint state=0;\n"
+		"\t\tint i=0;\n"
+		"\t\tchar ch=yytext[i];\n"
+		"\t\twhile(i<=yytext.length()){\n"
+		"\t\t\tswitch(state){\n";
 	for each (Node* nd in minDFA)
 	{
-		outfile << "\t\tcase " << nd->getNum() << ":\n";
+		outfile << "\t\t\tcase " << nd->getNum() << ":\n";
 		if (nd->isTerminal()){//如果是终态,执行action
 			//string action = ;//根据节点编号找到对应的string
-			outfile << "\t\t\t\tif(i==yytext.length()){\n"
-				"\t\t\t\tbreak;\n"
-				"\t\t\t}";
+			outfile << "\t\t\t\t\tif(i==yytext.length()){\n"
+				"\t\t\t\t\tbreak;\n"
+				"\t\t\t\t}";
 		}
 
 		typedef multimap<char, Node*> chedge;
@@ -397,7 +404,7 @@ void writeToc(){
 		bool ifelse = true;
 		while (itouts != outs.end())//对于该节点的每个出边，都有一个if else
 		{
-			outfile << "\t\t\t";
+			outfile << "\t\t\t\t";
 			if (ifelse){
 				outfile << "if";
 				ifelse = false;
@@ -406,26 +413,29 @@ void writeToc(){
 				outfile << "else if";
 			}
 			outfile << "(ch=='" << itouts->first << "'){\n"
-				"\t\t\t\tstate=" << itouts->second->getNum() << ";"
-				"\t\t\t\tbreak;\n";
+				"\t\t\t\t\tstate=" << itouts->second->getNum() << ";"
+				"\t\t\t\t\tbreak;\n";
 			itouts++;
 		}
 		if (outs.size() != 0){//最后的情况------------------------------------------------
-			outfile << "\t\t\telse{\n"
-				"\t\t\t\treturn \"MYERROR\";\n"
-				"\t\t\t\tbreak;\n"
-				"\t\t\t}";
+			outfile << "\t\t\t\telse{\n"
+				"\t\t\t\t\treturn \"MYERROR\";\n"
+				"\t\t\t\t\tbreak;\n"
+				"\t\t\t\t}";
 		}
 	}
-	outfile << "\t\t\tdefault:\n"  //default case
-		"return \"MYERROR\";\n"
-		"\t\t}"                 //end switch
-		"\t\ti++;\n"			//next char
-		"\t\tch=yytext[i];\n"
-		"\t}"                    //end while
+	outfile << "\t\t\t\tdefault:\n"  //default case
+		"\t\t\t\t\treturn \"MYERROR\";\n"
+		"\t\t\t}"                 //end switch
+		"\t\t\ti++;\n"			//next char
+		"\t\t\tch=yytext[i];\n"
+		"\t\t}"                    //end while for each string
+		"\t}"                      //end while 
 		"}";                 //end function
 }
 int main(){
+	infile.open("lextext.l", ios::in, 1);//只读
+	outfile.open("lex.yy.c", ios::out, 0);
 	Node* n1 = new Node(1);
 	Node* n2 = new Node(2);
 	Node* n3 = new Node(3);
@@ -465,5 +475,8 @@ int main(){
 
 	delete n1; delete n2; delete n3; delete n4; delete n5; delete n6; delete n7; delete n8;
 	//delete[]trans;
+
+	infile.close();
+	outfile.close();
 	return 0;
 }
