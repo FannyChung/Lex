@@ -14,11 +14,10 @@
 #define EPSL 84775
 using namespace std;
 
-ifstream infile;
-ofstream outfile;
+ifstream infile("lextext.l");
+ofstream outfile("lex.yy.c");
 Node* startOfDFA;
-vector<string> valNameTb;//.l自定义的变量
-//int(*trans)[256] = new int[][256];
+vector<string> valNameTb;//.l文件自定义的变量
 vector<char> alphaTB;//字符表
 typedef pair<char, Node*> edge;
 typedef map<char, set<Node*>> edgesByChar;
@@ -26,14 +25,16 @@ edgesByChar inedge;//入边表（反向表）
 edgesByChar outedge;//出边表
 vector<Node*> minDFA;//DFA'的节点集合
 
-
-typedef set<Node*> group;
+map<int, string> NFAandAction;//DFA和action的对应表
+map<int, string> DFAandAction;//DFA和action的对应表
+map<int, string> DFAoandAction;//miniDFA和action的对应表
+typedef set<Node*> group;//节点的集合，组
 group endStates;//终结点集合
 group nendStates;//非终结点集合
-typedef vector<set<Node*>> layer;
+typedef vector<set<Node*>> layer;//节点的集合的集合，即组的集合，从图上看可以看作树的一层
 
-//计算某个状态集合的e闭包
-set<Node*> closure(vector<Node*> S){//虽然不能重复，但使用set不方便插入的同时遍历，所以使vector
+
+set<Node*> closure(vector<Node*> S){//计算某个状态集合的epsilon闭包虽然不能重复，但使用set不方便插入的同时遍历，所以使vector
 	vector<Node*> T = S;
 	vector<Node*> T1;
 	do{
@@ -66,6 +67,7 @@ set<Node*> DFAedge(set<Node*> d, char c){
 	vector<Node*> d1Vec(d1.begin(), d1.end());
 	return closure(d1Vec);
 }
+
 //显示一个vector里的所有Node编号
 void displayNodeVector(vector<Node*> d){
 	cout << "in vector Node:\n";
@@ -86,7 +88,7 @@ void displayNodeVector(vector<Node*> d){
 	}
 	cout << endl;
 }
-//判断两 是否相等
+//判断两个类型是否相等
 template <class T>
 bool comp(T v1, T v2)
 {
@@ -236,10 +238,13 @@ void miniDFA(Node* start){
 	for each (set<Node*> setOfNodes in P2)//重新建立minDFA的节点,P2中每个集合对应一个节点
 	{
 		Node* minNode = new Node(i);
+		pair<int, string> actionmap = make_pair(i, "");//新建一个对应的int和string的pair，如果集合里有终态，则把对应的action合并,并加入映射表DFAoandAction中
 		for each (Node* nodeRpr in setOfNodes)
 		{
-			if ((!minNode->isTerminal()) && nodeRpr->isTerminal()){//如果节点集合里有一个节点是终态，则这个新的minDFA的节点是终态
+			if (nodeRpr->isTerminal()){//如果节点集合里有一个节点是终态，则这个新的minDFA的节点是终态
 				minNode->setTerminal(true);
+				actionmap.second += DFAandAction.find(nodeRpr->getNum())->second;
+				actionmap.second += "\n";
 			}
 			for each (char c in alphaTB)
 			{
@@ -253,6 +258,8 @@ void miniDFA(Node* start){
 					}
 				}
 			}
+			if (minNode->isTerminal())
+				DFAoandAction.insert(actionmap);
 		}
 		minDFA.push_back(minNode);
 		i++;
@@ -282,13 +289,17 @@ void generateDFA(Node* start){
 	set<Node*> vec1 = closure(s1);//求以起点开始的闭包，加入states
 	states.push_back(vec1);
 	bool isTermin = false;
+	pair<int, string> ationmap = make_pair(dfaNo, "");
 	for each (Node* nd in vec1)   //根据该状态集合里是否有终态确定新状态是否是终态
 	{
 		if (nd->isTerminal()){
 			isTermin = true;
-			break;
+			ationmap.second += NFAandAction.find(nd->getNum())->second;
+			ationmap.second += "\n";
 		}
 	}
+	if (isTermin)
+		DFAandAction.insert(ationmap);
 	Node* node1 = new Node(dfaNo++, isTermin);//建立 新的DFA节点
 	if (isTermin)
 		endStates.insert(node1);
@@ -296,7 +307,7 @@ void generateDFA(Node* start){
 		nendStates.insert(node1);
 
 	dfaNodes.push_back(node1);//加入dfaNodes的集合
-
+	startOfDFA = node1;
 	int p = 1;//当前新的DFA里的节点数量
 	int j = 0;
 	while (j <= p)
@@ -332,14 +343,18 @@ void generateDFA(Node* start){
 				p++;
 				states.push_back(e);
 				bool isTermin = false;
+				pair<int, string> ationmap = make_pair(dfaNo, "");
 				for each (Node* nd in e)   //根据该状态集合里是否有终态确定新状态是否是终态
 				{
 					bool ndisT = nd->isTerminal();
 					if (ndisT){
 						isTermin = true;
-						break;
+						ationmap.second += NFAandAction.find(nd->getNum())->second;
+						ationmap.second += "\n";
 					}
 				}
+				if (isTermin)
+					DFAandAction.insert(ationmap);
 				Node* newNode = new Node(dfaNo++, isTermin);
 				if (isTermin)            //根据是否终结点加入终结点集合或非终结点集合
 					endStates.insert(newNode);
@@ -364,7 +379,6 @@ void generateDFA(Node* start){
 	//删除原来的NFA所有节点
 
 	displayNodeVector(dfaNodes);
-	miniDFA(node1);
 	/*
 	for each (Node* dfaNd in dfaNodes)
 	{
@@ -375,14 +389,12 @@ void generateDFA(Node* start){
 void writeToc(){
 	outfile << "#include<iostream>\nusing namespace std;\n"
 		"const int MYERROR=1000000;"
-		"ifstream infile;"
-		"ofstream outfile"
-		"infile.open(\"test.cpp\", ios::in, 1);//输入文件只读"
-		"outfile.open(\"testout.txt\",ios::out,0);"
+		"ifstream infile(\"test.cpp\");\n"
+		"ofstream outfile(\"testout.txt\");\n"
 		"void yylex(){\n"
-		"string yytext;"
+		"string yytext;\n"
 		"while(true){\n"
-		"\tinfile>>yytext;"
+		"\tinfile>>yytext;\n"
 		"\t\tint state=0;\n"
 		"\t\tint i=0;\n"
 		"\t\tchar ch=yytext[i];\n"
@@ -392,10 +404,15 @@ void writeToc(){
 	{
 		outfile << "\t\t\tcase " << nd->getNum() << ":\n";
 		if (nd->isTerminal()){//如果是终态,执行action
-			//string action = ;//根据节点编号找到对应的string
-			outfile << "\t\t\t\t\tif(i==yytext.length()){\n"
+			//根据节点编号找到对应的string
+			outfile << "\t\t\t\t\tif(i==yytext.length()){\n";
+			map<int, string>::iterator itr = DFAoandAction.find(nd->getNum());
+			if (itr != DFAoandAction.end())
+				outfile << "\t\t\t\t\t" << itr->second << "\n"
 				"\t\t\t\t\tbreak;\n"
 				"\t\t\t\t}";
+
+			cout << itr->first << '\t' << itr->second << endl;
 		}
 
 		typedef multimap<char, Node*> chedge;
@@ -413,7 +430,7 @@ void writeToc(){
 				outfile << "else if";
 			}
 			outfile << "(ch=='" << itouts->first << "'){\n"
-				"\t\t\t\t\tstate=" << itouts->second->getNum() << ";"
+				"\t\t\t\t\tstate=" << itouts->second->getNum() << ";\n"
 				"\t\t\t\t\tbreak;\n";
 			itouts++;
 		}
@@ -421,21 +438,23 @@ void writeToc(){
 			outfile << "\t\t\t\telse{\n"
 				"\t\t\t\t\treturn \"MYERROR\";\n"
 				"\t\t\t\t\tbreak;\n"
-				"\t\t\t\t}";
+				"\t\t\t\t}\n";
 		}
 	}
 	outfile << "\t\t\t\tdefault:\n"  //default case
 		"\t\t\t\t\treturn \"MYERROR\";\n"
-		"\t\t\t}"                 //end switch
+		"\t\t\t}\n"                 //end switch
 		"\t\t\ti++;\n"			//next char
 		"\t\t\tch=yytext[i];\n"
-		"\t\t}"                    //end while for each string
-		"\t}"                      //end while 
-		"}";                 //end function
+		"\t\t}\n"                    //end while for each string
+		"\t}\n"                      //end while 
+		"}\n";                 //end function
 }
 int main(){
-	infile.open("lextext.l", ios::in, 1);//只读
-	outfile.open("lex.yy.c", ios::out, 0);
+	//string inf = "lextext.l";
+	//string outf = "lex.yy.c";
+	//infile.open("lextext.l", std::ifstream::in, 1);//只读
+	//outfile.open("lex.yy.c", std::ofstream::out);
 	Node* n1 = new Node(1);
 	Node* n2 = new Node(2);
 	Node* n3 = new Node(3);
@@ -470,12 +489,12 @@ int main(){
 
 	vector<Node*> I;
 	I.push_back(n1);
+	NFAandAction.insert(make_pair(8,"doing"));
 	cout << "\nbegin generate DFA--------------------" << endl;
 	generateDFA(n1);
-
+	miniDFA(startOfDFA);
+	writeToc();
 	delete n1; delete n2; delete n3; delete n4; delete n5; delete n6; delete n7; delete n8;
-	//delete[]trans;
-
 	infile.close();
 	outfile.close();
 	return 0;
