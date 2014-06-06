@@ -1,0 +1,112 @@
+%{
+#include<iostream>
+#include<string>
+#include<stdio.h>
+#include<fstream>
+using namespace std;
+%}
+digit	[0-9]
+nature  [1-9]
+letter	[a-zA-Z]
+id	{letter}[{letter}|{digit}]^
+integer	{digit}{digit}^
+floatnum	[{digit}|{digit}^].[{digit}|{digit}^]
+port	${digit}^
+%%
+"auto"		{return "AUTO";}
+"break"		{return "BREAK";}
+"case"		{return "CASE"; }
+"char"		{return "CHAR"; }
+"const"		{return "CONST";}
+"continue"	{return "CONTINUE";}
+"default"	{return "DEFAULT"; }
+"do"		{return "DO";}
+"double"	{return "DOUBLE"; }
+"enum"		{return "ENUM"; }
+"else"		{return "ELSE";}
+"float"		{return "FLOAT"; }
+"for"		{return "FOR";}
+"if"		{return "IF";}
+"int"		{return "INT";}
+"long"		{return "LONG";}
+"return"	{return "RETURN";}
+"short"		{return "SHORT";}
+"sizeof"	{return "SIZEOF";}
+"struct"	{return "STRUCT"; }
+"switch"	{return "SWITCH"; }
+"typedef"	{return "TYPEDEF";}
+"union"		{return "UNION"; }
+"unsigned"	{return "UNSIGNED"; }
+"void"		{return "VOID";}
+"while"		{return "WHILE";}
+{id}		{yylval=install_id();return "IDENTIFIER";}
+{port}		{yylval=convert_port();return "PORT";}
+{floatnum}	{yylval=convert_float();return "FLOATNUM";}
+{integer}	{yylval=convert_int();return "INTEGER";}
+"+="		{return "ADD_ASSIGN";}
+"-="		{return "SUB_ASSIGN";}
+"*="		{return "MUL_ASSIGN"; }
+"/="		{return "DIV_ASSIGN";}
+"%="		{return "MOD_ASSIGN"; }
+">>"		{return  "RIGHT_OP"; }
+"<<"		{return "LEFT_OP"; }
+"++"		{return "INC_OP"; }
+"--"		{return "DEC_OP";}
+"->"		{return "PTR_OP"; }
+"&&"		{return "ADD_OP";}
+"<="		{return "LE_OP";}
+">="		{return "GE_OP";}
+"=="		{return "EQ_OP";}
+"!="		{return "NE_OP";}
+"!"		{return ("!");}
+"+"		{return ("+");}
+"-"		{return ("-");}
+"/"		{return ("/");}
+"%"		{return ("%");}
+"<"		{return ("<");}
+">"		{return (">");}
+":"		{return ("SEMICOLON");}
+"?"		{return ("?");}
+";"		{return (";");}
+","		{return (",");}
+"["		{return ("[");}
+"]"		{return	("]");}
+"{"		{return ("{");}
+"}"		{return ("}");}
+"="		{return ("=");}
+(		{return ("(");}
+)		{return (")");}
+%%
+struct TOKEN{
+	string nameOrVal;
+	string type;
+	long address;
+};
+
+template <class Type>  
+Type stringToNum(const string& str)  
+{  
+    istringstream iss(str);  
+    Type num;  
+    iss >> num;  
+    return num;      
+}
+int convert_port(){
+	return stringToNum<int>(str.substr(1,str.length()-1));
+}
+int convert_int(){
+	return stringToNum<int>(str);
+}
+
+float convert_float(){
+	return stringToNum<float>(str);
+}
+
+int install_id(){//装载IDENTIFER符号表
+	
+}
+int main()
+{
+   yylex();
+   return 0;
+}
